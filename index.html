@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script>
+        let isWSconnected = false;
+        let accessRole = null;
+
+        const ws = new WebSocket("ws://localhost:8080");
+        ws.onopen = () => {
+          isWSconnected = true;
+        };
+        ws.onclose = () => {
+          isWSconnected = false;
+          alert("WebSocket connection disrupted!");
+        };
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if (data.type === 'update_patient') {
+            updatePatient(data.patient_id, data.patient_name);
+          }
+        };
+
+        const sendPatientUpdate = (patientId) => {
+          ws.send(JSON.stringify({type: 'update_patient', patient_id: patientId, patient_name: $(`#patient${patientId}`).val()}));
+        };
+
+        const updatePatient = (patientId, patientName) => {
+          $("#patient" + patientId).val(patientName);
+        };
+
+        const createPatientsList = (patients) => {
+          const patientContainer = $("#patients_container");
+          patientContainer.html("");
+          for (let patient of patients) {
+            patientContainer.append('<input id="patient' + patient.id + '"name="patient_name" ' +
+              'value="' + patient.patient_name + '"><button onclick="sendPatientUpdate(' + patient.id + ')">Update</button><br>');
+          }
+        }
+
+        const getPatients = () => {
+          accessRole = $("input[name='access_role']:checked").val();
+          if (isWSconnected) {
+            ws.send(JSON.stringify({type: 'authorize', accessRole}));
+          } else {
+            alert("WebSockets not connected!");
+            return;
+          }
+          $.ajax({
+            url: "http://localhost:3000/patients",
+            data: {
+              access_role: accessRole
+            },
+            success: createPatientsList
+          });
+        }
+    </script>
+</head>
+<body>
+Your access role ID: <br>
+<input name="access_role" type="radio" value="1"> 1 <br>
+<input name="access_role" type="radio" value="2"> 2 <br>
+<button onclick="getPatients()">Submit</button>
+<div id="patients_container"></div>
+</body>
+</html>
